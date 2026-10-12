@@ -1,0 +1,43 @@
+name: GTA Craft native MSVC build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-native:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - name: Check out project source
+        uses: actions/checkout@v4
+
+      - name: Fetch required SDK and ReShade headers
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash gta/fetch_deps.sh
+          test -f gta/third_party/shv/ScriptHookV.lib
+          test -f gta/third_party/reshade/reshade.hpp
+
+      - name: Build native plugin with MSVC
+        shell: pwsh
+        run: |
+          & cmd.exe /d /c 'gta\build.bat'
+          if ($LASTEXITCODE -ne 0) {
+            throw "MSVC compilation failed with exit code $LASTEXITCODE"
+          }
+          if (-not (Test-Path 'gta/build/MCPassthrough.asi')) {
+            throw 'The expected MCPassthrough.asi was not created.'
+          }
+          Get-Item 'gta/build/MCPassthrough.asi' | Select-Object FullName, Length
+
+      - name: Upload compiled plugin only
+        uses: actions/upload-artifact@v4
+        with:
+          name: MCPassthrough-MSVC-unsigned
+          path: gta/build/MCPassthrough.asi
+          if-no-files-found: error
+          retention-days: 7
