@@ -1,0 +1,35 @@
+name: GTA Craft Windows Launcher Build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-launcher:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - name: Check out project
+        uses: actions/checkout@v4
+
+      - name: Compile launcher using Windows .NET Framework
+        shell: pwsh
+        run: |
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/build-launcher.ps1
+          if ($LASTEXITCODE -ne 0) {
+            throw "Windows launcher compiler returned exit code $LASTEXITCODE"
+          }
+          if (-not (Test-Path -LiteralPath 'Minecraft in GTA.exe' -PathType Leaf)) {
+            throw 'Expected Windows launcher executable was not created.'
+          }
+          Get-Item -LiteralPath 'Minecraft in GTA.exe' | Select-Object Name, Length
+
+      - name: Upload launcher build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GTA-Craft-Windows-Launcher
+          path: Minecraft in GTA.exe
+          if-no-files-found: error
+          retention-days: 7
